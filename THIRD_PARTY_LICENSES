@@ -1,0 +1,110 @@
+This project includes the following third-party libraries. Each library is subject to its own license terms as listed below.
+
+================================================================================
+Library: colorama
+License: BSD 3-Clause License
+Homepage: https://pypi.org/project/colorama/
+================================================================================
+
+Library: memory-profiler
+License: BSD 3-Clause License
+Homepage: https://pypi.org/project/memory-profiler/
+
+--------------------------------------------------------------------------------
+
+Library: NumPy
+License: BSD 3-Clause License
+Homepage: https://pypi.org/project/numpy/
+
+--------------------------------------------------------------------------------
+
+Library: Packaging
+License: BSD 2-Clause License
+Homepage: https://pypi.org/project/packaging/
+
+--------------------------------------------------------------------------------
+
+Library: pandas-python
+License: BSD 3-Clause License
+Homepage: https://pypi.org/project/pandas/
+
+--------------------------------------------------------------------------------
+
+Library: pipenv
+License: MIT License
+Homepage: https://pypi.org/project/pipenv/
+
+--------------------------------------------------------------------------------
+
+Library: platformdirs
+License: MIT License
+Homepage: https://pypi.org/project/platformdirs/
+
+--------------------------------------------------------------------------------
+
+Library: psutil
+License: BSD 3-Clause License
+Homepage: https://pypi.org/project/psutil/
+
+--------------------------------------------------------------------------------
+
+Library: py-filelock
+License: Unlicense
+Homepage: https://pypi.org/project/filelock/
+
+--------------------------------------------------------------------------------
+
+Library: setuptools
+License: MIT License
+Homepage: https://pypi.org/project/setuptools/
+
+--------------------------------------------------------------------------------
+
+Library: six (Python six)
+License: MIT License
+Homepage: https://pypi.org/project/six/
+
+--------------------------------------------------------------------------------
+
+Library: tzdata
+License: Apache License 2.0
+Homepage: https://pypi.org/project/tzdata/
+
+--------------------------------------------------------------------------------
+
+Library: python-dateutil
+License: Apache License 2.0
+Homepage: https://pypi.org/project/python-dateutil/
+
+--------------------------------------------------------------------------------
+
+Library: distlib
+License: Python Software Foundation License 2.0 (PSF-2.0)
+Homepage: https://pypi.org/project/distlib/
+
+--------------------------------------------------------------------------------
+
+Library: pytz
+License: MIT License
+Homepage: https://pypi.org/project/pytz/
+
+--------------------------------------------------------------------------------
+
+Library: simpy
+License: MIT License
+Homepage: https://pypi.org/project/simpy/
+
+--------------------------------------------------------------------------------
+
+Library: tqdm
+License: MIT License and Mozilla Public License 2.0
+This means you may choose to use tqdm under the terms of either:
+- the MIT License (permissive), or
+- the Mozilla Public License 2.0 (copyleft for modifications)
+Homepage: https://pypi.org/project/tqdm/
+
+--------------------------------------------------------------------------------
+
+Library: virtualenv
+License: MIT License
+Homepage: https://pypi.org/project/virtualenv/
