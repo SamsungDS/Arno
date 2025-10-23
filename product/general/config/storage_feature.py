@@ -104,23 +104,33 @@ class Feature(CoreFeature):
 
         # DCL
         self.DCL_READ_HANDLING = self.gen_feature_id()
-        self.DCL_READ_DONE_HANDLING = self.gen_feature_id()
+        self.DCL_READ_COMPLETION_HANDLING = self.gen_feature_id()
         self.DCL_WRITE_HANDLING = self.gen_feature_id()
         self.DCL_DONE_HANDLING = self.gen_feature_id()
 
-        #AML
+        # AML
         self.AML_DONE_HANDLING = self.gen_feature_id()
         self.AML_WRITE_HANDLING = self.gen_feature_id()
         self.AML_READ_HANDLING = self.gen_feature_id()
         self.AML_ALLOC_DONE = self.gen_feature_id()
-
-        #TSU
+        self.AML_ZERO = self.gen_feature_id()
+        self.AML_RELEASE_DONE = self.gen_feature_id()
+        # TSU
         self.TSU_HANDLING = self.gen_feature_id()
         self.TSU_DONE = self.gen_feature_id()
-
-        #FBM
-        self.FBM_BLOCK_ALLOC_HANDLING = self.gen_feature_id()
+        self.TSU_ZERO = self.gen_feature_id()
+        # FBM
+        self.FBM_ALLOC_HANDLING = self.gen_feature_id()
         self.FBM_ERASE_DONE_HANDLING = self.gen_feature_id()
+        self.FBM_GC_HANDLING = self.gen_feature_id()
+        self.FBM_RELEASE_HANDLING = self.gen_feature_id()
+        self.FBM_GC_DONE_HANDLING = self.gen_feature_id()
+
+        # GC
+        self.GC_WRITE_HANDLING = self.gen_feature_id()
+        self.GC_DONE_DONE_HANDLING = self.gen_feature_id()
+        self.GC_ALLOC_DONE_HANDLING = self.gen_feature_id()
+        self.GC_READ_HANDLING = self.gen_feature_id()
 
         # SDC
         self.SDC_PS_TIMER = self.gen_feature_id()
@@ -165,9 +175,8 @@ class Feature(CoreFeature):
         self.feature_list[self.NVME_RESPONSE_CMD_TRANSFER] = FeatureInfo(
             self.calculate_latency(self.address_map.NVMe, cycle=30), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
-
-        self.feature_list[self.PCIE_RDMA] = FeatureInfo(hdma_latency,0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        self.feature_list[self.PCIE_WDMA] = FeatureInfo(wdma_latency,0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        self.feature_list[self.PCIE_RDMA] = FeatureInfo(hdma_latency, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        self.feature_list[self.PCIE_WDMA] = FeatureInfo(wdma_latency, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
         self.feature_list[self.NVME_CMD_FETCH_JOB_CREATE] = FeatureInfo(
             nsr_to_send_latency, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -209,7 +218,6 @@ class Feature(CoreFeature):
         self.feature_list[self.JG_HANDLE_WRITE_BUFFERED_UNIT] = FeatureInfo(self.calculate_latency(
             self.address_map.JG, cycle=1), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
-
         self.feature_list[self.JS_HANGOVER_NAND_JOB] = FeatureInfo(
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.JS_SCHEDULING] = FeatureInfo(self.calculate_latency(
@@ -245,7 +253,7 @@ class Feature(CoreFeature):
 
         self.feature_list[self.DCL_READ_HANDLING] = FeatureInfo(
             50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        self.feature_list[self.DCL_READ_DONE_HANDLING] = FeatureInfo(
+        self.feature_list[self.DCL_READ_COMPLETION_HANDLING] = FeatureInfo(
             30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.DCL_WRITE_HANDLING] = FeatureInfo(
             70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -259,11 +267,31 @@ class Feature(CoreFeature):
             30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.AML_ALLOC_DONE] = FeatureInfo(
             10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        self.feature_list[self.AML_RELEASE_DONE] = FeatureInfo(
+            10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        self.feature_list[self.AML_ZERO] = FeatureInfo(
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.TSU_HANDLING] = FeatureInfo(
-            30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.TSU_DONE] = FeatureInfo(
-            20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        self.feature_list[self.FBM_BLOCK_ALLOC_HANDLING] = FeatureInfo(
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        self.feature_list[self.TSU_ZERO] = FeatureInfo(
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        self.feature_list[self.FBM_ALLOC_HANDLING] = FeatureInfo(
             40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.FBM_ERASE_DONE_HANDLING] = FeatureInfo(
             10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        self.feature_list[self.FBM_GC_HANDLING] = FeatureInfo(
+            10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        self.feature_list[self.FBM_RELEASE_HANDLING] = FeatureInfo(
+            10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        self.feature_list[self.FBM_GC_DONE_HANDLING] = FeatureInfo(
+            10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        self.feature_list[self.GC_WRITE_HANDLING] = FeatureInfo(
+            20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        self.feature_list[self.GC_DONE_DONE_HANDLING] = FeatureInfo(
+            10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        self.feature_list[self.GC_ALLOC_DONE_HANDLING] = FeatureInfo(
+            10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        self.feature_list[self.GC_READ_HANDLING] = FeatureInfo(
+            50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)

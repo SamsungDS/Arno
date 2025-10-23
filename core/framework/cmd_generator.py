@@ -3,7 +3,8 @@ from core.framework.common import eCMDType
 
 class CommandClassifier:
     workload_type_dict = {'Read': eCMDType.Read,
-                          'Write': eCMDType.Write}
+                          'Write': eCMDType.Write,
+                          'Flush': eCMDType.Flush}
 
     @classmethod
     def translate_str_to_cmd_type(cls, io_type):

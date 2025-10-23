@@ -161,7 +161,7 @@ class PCIe(ParallelUnit):
             stPcie['sq_id'] = packet['sq_id']
             try:
                 stPcie['host_stream_id'] = (
-                    stPcie['start_g_lpn']) % (self.param.STREAM_COUNT)
+                    stPcie['start_g_lpn']) % (self.param.STREAM_COUNT - self.param.GC_STREAM)
             except KeyError:
                 pass
             assert packet['cmd_id'] not in self.host_request_dma_size

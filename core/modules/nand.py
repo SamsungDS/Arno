@@ -679,7 +679,6 @@ class NAND(ParallelUnit):
         cell_type = packet['cell_type']
         page_per_cell = cell_type.value
 
-
         if self.param.TPROG_US != 0:
             tprog = self.param.TPROG_US
         else:

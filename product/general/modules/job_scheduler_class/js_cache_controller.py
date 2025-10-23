@@ -2,9 +2,10 @@ from collections import deque
 
 from core.framework.media_common import (NANDCMDType, is_din_cmd, is_dout_cmd,
                                          is_read_cmd, is_tprog_cmd, is_tr_cmd)
-from product.general.modules.job_scheduler_class.js_nand_config import NANDConfig
-from product.general.modules.job_scheduler_class.js_queue import (QCountObserver,
-                                                                  SchedulerQ)
+from product.general.modules.job_scheduler_class.js_nand_config import \
+    NANDConfig
+from product.general.modules.job_scheduler_class.js_queue import (
+    QCountObserver, SchedulerQ)
 
 
 class CacheController:

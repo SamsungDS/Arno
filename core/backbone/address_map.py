@@ -75,7 +75,7 @@ class AddressMap(object):
         self.SC = 13
         self.EXAMPLE = 14
         self.HIL = 15
-        self.FIL = 16
+        self.BCM = 16
         self.DCL = 17
         self.AML = 18
         self.TSU = 19

@@ -2,7 +2,6 @@ import inspect
 from enum import Enum
 
 import simpy
-
 from core.framework.analyzer import Analyzer
 from core.framework.common import ProductArgs
 from core.framework.file_path_generator import FilePathGenerator, LogOutputType
@@ -309,31 +308,23 @@ class PowerContext:
         module_name += f'_{feature_id}'
         diff = 0
         if self.subModule_power[module_name]['cur_state'] == ePowerState.Idle:
-            diff = self.subModule_power[module_name][ePowerState.Active] - \
-                self.subModule_power[module_name][ePowerState.Idle]
+            diff = self.subModule_power[module_name][ePowerState.Active] - self.subModule_power[module_name][ePowerState.Idle]
         elif self.subModule_power[module_name]['cur_state'] == ePowerState.Leakage:
-            diff = self.subModule_power[module_name][ePowerState.Active] - \
-                self.subModule_power[module_name][ePowerState.Leakage]
+            diff = self.subModule_power[module_name][ePowerState.Active] - self.subModule_power[module_name][ePowerState.Leakage]
         elif self.subModule_power[module_name]['cur_state'] == ePowerState.Off:
-            diff = self.subModule_power[module_name][ePowerState.Active] - \
-                self.subModule_power[module_name][ePowerState.Off]
+            diff = self.subModule_power[module_name][ePowerState.Active] - self.subModule_power[module_name][ePowerState.Off]
         elif self.subModule_power[module_name]['cur_state'] == ePowerState.Idle1:
-            diff = self.subModule_power[module_name][ePowerState.Active] - \
-                self.subModule_power[module_name][ePowerState.Idle1]
+            diff = self.subModule_power[module_name][ePowerState.Active] - self.subModule_power[module_name][ePowerState.Idle1]
         self.ip_power += diff
 
         power = 0
         duration = 0
         if self.subModule_power[module_name]['cur_state'] == ePowerState.Idle:
             if self.env.now > self.submodule_last_snapshot_time[module_name]:
-                power = (self.env.now - self.submodule_last_snapshot_time[module_name]) * \
-                    self.subModule_power[module_name][ePowerState.Idle]
-                duration = (
-                    self.env.now -
-                    self.submodule_last_snapshot_time[module_name])
+                power = (self.env.now - self.submodule_last_snapshot_time[module_name]) * self.subModule_power[module_name][ePowerState.Idle]
+                duration = (self.env.now - self.submodule_last_snapshot_time[module_name])
             else:
-                power = (self.submodule_last_snapshot_time[module_name] - self.env.now) * \
-                    self.subModule_power[module_name][ePowerState.Idle]
+                power = (self.submodule_last_snapshot_time[module_name] - self.env.now) * self.subModule_power[module_name][ePowerState.Idle]
                 self.submodule_accumulated_sustain_power[module_name] -= power
                 power = 0
             self.submodule_last_snapshot_time[module_name] = self.env.now
@@ -405,17 +396,13 @@ class PowerContext:
 
     def deactivate_sub_module(self, ip_name, module_name, feature_id):
         module_name += f'_{feature_id}'
-        diff = abs(self.subModule_power[module_name][ePowerState.Idle] -
-                   self.subModule_power[module_name][ePowerState.Active])
+        diff = abs(self.subModule_power[module_name][ePowerState.Idle] - self.subModule_power[module_name][ePowerState.Active])
         self.ip_power -= diff
 
         duration = 0
         if self.env.now > self.submodule_last_snapshot_time[module_name]:
-            power = (self.env.now - self.submodule_last_snapshot_time[module_name]
-                     ) * self.subModule_power[module_name][ePowerState.Active]
-            duration = (
-                self.env.now -
-                self.submodule_last_snapshot_time[module_name])
+            power = (self.env.now - self.submodule_last_snapshot_time[module_name]) * self.subModule_power[module_name][ePowerState.Active]
+            duration = (self.env.now - self.submodule_last_snapshot_time[module_name])
         else:
             power = (self.submodule_last_snapshot_time[module_name] - self.env.now) * \
                 self.subModule_power[module_name][ePowerState.Active]
@@ -681,8 +668,7 @@ class PowerContext:
         return self.submodule_sustain_power_sum
 
     def get_sustain_avg_sub_module_power(self, ip_name):
-        return self.submodule_sustain_power_sum / \
-            (self.analyzer.sustained_perf_measure_end_time - self.analyzer.sustained_perf_measure_start_time)
+        return self.submodule_sustain_power_sum / (self.analyzer.sustained_perf_measure_end_time - self.analyzer.sustained_perf_measure_start_time)
 
     def get_sustain_avg_nfcp_power(self):
 
@@ -974,9 +960,21 @@ class PowerManager:
             logstr = f'#{self.env.now}, {snapshot_power_sum}\n'
             self.total_power_filename.write(logstr)
 
-    def start_power_snapshot(self):
-        self.framework_timer.generate_infinity_timer(
-            self.power_snap_shot_interval, self.power_snapShot, 0)
+    def start_power_snapshot(self, workload, qd):
+        if self.param.ENABLE_LOGGING_TOTAL_POWER:
+            self.file_path_generator.set_file_prefix(workload.name, qd)
+            self.power_trace_log_file_prefix = self.file_path_generator.get_file_prefix(LogOutputType.Power.value)
+            self.power_trace_log_filename = open(f'{self.power_trace_log_file_prefix}_power_trace.csv', 'w')
+            self.make_log_title_header()
+        self.framework_timer.generate_infinity_timer(self.power_snap_shot_interval, self.power_snapShot, 0)
+
+    def make_log_title_header(self):
+        if self.param.ENABLE_LOGGING_TOTAL_POWER and self.power_snap_shot_interval != 0:
+            if self.product_type == 'client_value' or self.product_type == 'mobile':
+                logstr = f'#Index, TotalPower, HostPower, CoretopPower, MediatopPower, Backbone, PCIePhy, NANDIO, NandPower,MEMPower\n'
+            else:
+                logstr = f'#Index, TotalPower, HostPower, CoretopPower, MediatopPower, BufferTop, Backbone, PCIePhy, NANDIO, NandPower,MEMPower\n'
+            self.power_trace_log_filename.write(logstr)
 
     def power_manager_reset(self):
         self.total_power = 0
@@ -1077,8 +1075,9 @@ class PowerManager:
         self.implementation_module[ip_name].check_feature_id(
             sub_module_name, feature_id)
         yield self.env.timeout(0)
-        if not self.implementation_module[ip_name].is_sub_module_active(
-                sub_module_name, feature_id):
+
+        if not self.implementation_module[ip_name].is_sub_module_active(sub_module_name, feature_id):
+
             diff = yield from self.implementation_module[ip_name].activate_sub_module(ip_name, sub_module_name, feature_id, runtime_active_power)
             sub_name = sub_module_name + f'_{feature_id}'
             self.implementation_module[ip_name].add_sub_module_power(

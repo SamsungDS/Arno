@@ -1,6 +1,6 @@
 from core.framework.common import MemAccessInfo, eCMDType, eResourceType
 from core.modules.parallel_unit import ParallelUnit
-from product.general.provided_interface import pcie_pif, nvme_pif
+from product.general.provided_interface import nvme_pif, pcie_pif
 
 
 class HDMA(ParallelUnit):

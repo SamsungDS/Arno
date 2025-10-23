@@ -58,7 +58,10 @@ class AllocatorMediator(metaclass=Singleton):
             eResourceType.WriteBuffer.value,
             self.feature.BUFFER_REQUEST_4K_UNIT,
             self.feature.BUFFER_RELEASE_4K_UNIT)
-
+        self.buffer_allocator.set_resource_producer_address(eResourceType.GCBuffer.value, self.param.GC_BUFFER_MANAGER,
+                                                            BA_FIFO_ID.Allocate.value, BA_FIFO_ID.Release.value)
+        self.buffer_allocator.set_feature_id(eResourceType.GCBuffer.value, self.feature.BUFFER_REQUEST_4K_UNIT,
+                                             self.feature.BUFFER_RELEASE_4K_UNIT)
         self.allocator_list = [None for _ in range(len(eResourceType))]
 
         self.allocator_list[eResourceType.ReadDMADesc.value] = self.read_dma_desc_allocator
@@ -67,6 +70,7 @@ class AllocatorMediator(metaclass=Singleton):
         self.allocator_list[eResourceType.WriteBuffer.value] = self.buffer_allocator
         self.allocator_list[eResourceType.MediaBufferedUnitID.value] = self.buffered_unit_id_allocator
         self.allocator_list[eResourceType.MediaNandJobID.value] = self.nand_job_id_allocator
+        self.allocator_list[eResourceType.GCBuffer.value] = self.buffer_allocator
 
     def read(self, resource_type, resource_id):
         allocator = self.allocator_list[resource_type.value]

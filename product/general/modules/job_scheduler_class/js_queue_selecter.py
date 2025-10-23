@@ -1,6 +1,9 @@
-from product.general.modules.job_scheduler_class.js_nand_config import NANDConfig
-from product.general.modules.job_scheduler_class.js_queue import (QFacade, ResumeQ,
-                                                                  SchedulerQ, StarvationQ)
+from product.general.modules.job_scheduler_class.js_nand_config import \
+    NANDConfig
+from product.general.modules.job_scheduler_class.js_queue import (QFacade,
+                                                                  ResumeQ,
+                                                                  SchedulerQ,
+                                                                  StarvationQ)
 
 
 class SelectedQContext(set):

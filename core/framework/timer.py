@@ -38,6 +38,7 @@ class FrameworkTimer(metaclass=Singleton):
 
     def timer(self, timer_id, timer_interval_ns, wakeup_func, func_latency_ns):
         next_timer_expire_interval_ns = timer_interval_ns - func_latency_ns
+        assert next_timer_expire_interval_ns != 0
         while True:
             # wait, func_latency
             yield self.env.timeout(func_latency_ns)

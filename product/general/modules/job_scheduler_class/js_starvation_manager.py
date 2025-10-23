@@ -1,5 +1,7 @@
-from product.general.modules.job_scheduler_class.js_queue import (MetaWriteQ, QFacade,
-                                                                  StarvationQ, UrgentQ)
+from product.general.modules.job_scheduler_class.js_queue import (MetaWriteQ,
+                                                                  QFacade,
+                                                                  StarvationQ,
+                                                                  UrgentQ)
 
 
 class StarvationManager:

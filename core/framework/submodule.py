@@ -3,7 +3,6 @@ from inspect import isgeneratorfunction
 from itertools import cycle
 
 import simpy
-
 from core.backbone.bus import BusWaitingQ
 from core.backbone.power_manager import PowerManager
 from core.framework.analyzer import Analyzer

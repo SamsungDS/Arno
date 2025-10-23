@@ -1,15 +1,16 @@
 from dataclasses import dataclass
 from typing import Union
 
-from core.framework.common import (QueueDepthChecker,
-                                   eCacheResultType)
+from core.framework.common import QueueDepthChecker, eCacheResultType
 from core.framework.fifo_id import NFC_FIFO_ID
 from core.framework.media_common import *
+from core.modules.parallel_unit import ParallelUnit
 from product.general.modules.job_scheduler_class.js_queue import QFacade
 from product.general.modules.job_scheduler_class.js_scheduling_context import \
     JSSchedulingContext
-from core.modules.parallel_unit import ParallelUnit
-from product.general.provided_interface import job_generator_pif, job_scheduler_pif, nand_flash_controller_pif
+from product.general.provided_interface import (job_generator_pif,
+                                                job_scheduler_pif,
+                                                nand_flash_controller_pif)
 
 
 @dataclass
@@ -117,7 +118,6 @@ class JobScheduler(ParallelUnit):
 
             if is_dout_cmd(nand_cmd_type):
                 return
-
             dbl_info = generate_dbl_info(packet)
             self.send_sq(
                 job_generator_pif.TaskReleaseDBL(

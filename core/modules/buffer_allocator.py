@@ -14,7 +14,7 @@ class BufferAllocator(ParallelUnit):
         self.remain_buffer_cnt = [0 for _ in eResourceType]
         self.remain_buffer_cnt[eResourceType.ReadBuffer.value] = self.param.BA_READ_BUFFER_CNT
         self.remain_buffer_cnt[eResourceType.WriteBuffer.value] = self.param.BA_WRITE_BUFFER_CNT
-
+        self.remain_buffer_cnt[eResourceType.GCBuffer.value] = self.param.GC_BUFFER
         self.generate_submodule(
             self.allocate_fetch,
             self.feature.BA_ALLOCATE_FETCH)
@@ -122,6 +122,7 @@ class BufferAllocator(ParallelUnit):
         self.cur_alloc_cnt[resource_type] += packet['request_size']
         packet['resource_id'] = [self.free_id_queue[resource_type].popleft()
                                  for _ in range(packet['request_size'])]
+
         self.send_sq(
             self.gen_alloc_done_packet(packet),
             self.address,
@@ -140,7 +141,6 @@ class BufferAllocator(ParallelUnit):
 
     def release(self, packet):
         resource_type = packet['resource_type'].value
-
         self.remain_buffer_cnt[resource_type] += packet['request_size']
         self.total_release_cnt[resource_type] += packet['request_size']
         self.cur_alloc_cnt[resource_type] -= packet['request_size']

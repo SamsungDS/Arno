@@ -23,7 +23,7 @@ class Parameter:
         self.args = args
         self.NAND_PRODUCT = args.nand_product
         self.core_parameter.NAND_IO_Mbps = self.args.nand_io_mbps
-        self.WORKLOAD_TYPE = "basic"
+        self.WORKLOAD_TYPE, self.WORKLOAD_LINES = self.args.workload_type
         self.ROUND_VBLOCK = 1
         self.ROUND_VBLOCK_NOT_SPECIFIED = self.ROUND_VBLOCK == -1
         self.VIRTUAL_DOMAIN = 1
@@ -37,7 +37,7 @@ class Parameter:
         self.PLANE = self.args.plane
         self.BLOCK_PER_PLANE = self.BLOCK // self.PLANE
         self.PAGE_PER_BLOCK = self.core_parameter.PAGE
-        self.NAND_CELL_TYPE = Cell.TLC
+        self.NAND_CELL_TYPE = Cell[args.nand_cell_type]
         self.SIM_CMD_COUNT = -1
         self.ENABLE_QOS = args.enable_qos
         self.ENABLE_COMMAND_RECORD = self.args.enable_command_record
@@ -53,6 +53,25 @@ class Parameter:
 
         self.OUTPUT_FOLDER_NAME = args.folder_name
         self.RECORD_SUBMODULE_UTILIZATION = args.enable_utilization
+        self.GC_THRESHOLD = args.gc_threshold
+        self.URGENT_GC_THRESHOLD = args.urgent_gc_threshold
+        self.SUSTAINED = args.make_sustained
+        self.SUSTAINED_BLOCK_RATE = args.sustained_block_rate
+        self.SUSTAINED_SIZE = args.sustained_page_rate
+
+        self.ENABLE_POWER = args.enable_power
+        self.ENABLE_OPTION_PRINT = args.enable_power
+        self.ENABLE_POWER_LATENCY = args.enable_power
+
+        self.HOST_INTERFACE_GEN = args.pcie_gen
+        self.HOST_INTERFACE_GEN_TARGET_PERF_MBS = {
+            6: {'read': 2_8400, 'write': 2_8400},
+            5: {'read': 1_4900, 'write': 1_4800},
+            4: {'read': 7494, 'write': 7310},
+        }
+        self.HOST_4K_TRANSFER_LATENCY = {
+            'read': round(4096 / self.HOST_INTERFACE_GEN_TARGET_PERF_MBS[self.HOST_INTERFACE_GEN]['read'] * 1e3, 1),
+            'write': round(4096 / self.HOST_INTERFACE_GEN_TARGET_PERF_MBS[self.HOST_INTERFACE_GEN]['write'] * 1e3, 1)}
 
     def __getattr__(self, name):
         return getattr(self.core_parameter, name)
@@ -74,6 +93,7 @@ class Parameter:
         elif not hasattr(self, 'args') or self.args is None:
             self.args = None
             self.NAND_PRODUCT = 'TLC_EXAMPLE'
+            self.NAND_CELL_TYPE = Cell.TLC
             self.core_parameter.NAND_IO_Mbps = 0
             self.ROUND_VBLOCK_NOT_SPECIFIED = True
             self.VBLOCK_PER_SUPERBLOCK_NOT_SPECIFIED = True
@@ -83,6 +103,7 @@ class Parameter:
             self.WAY = 2
             self.CHANNEL = 16
             self.WORKLOAD_TYPE = ''
+            self.WORKLOAD_LINES = 0
             self.ENABLE_VCD = 0
             self.VCD_FILE_NAME = 'simpy.vcd'
             self.ENABLE_COMMAND_RECORD = False
@@ -105,7 +126,7 @@ class Parameter:
 
         self.QOS_CANDIDATES = [1, 50, 90, 99, 99.9, 99.99, 99.999, 99.9999]
 
-        self.POWER_SNAP_SHOT_INTERVAL = 0
+        self.POWER_SNAP_SHOT_INTERVAL = 5 * 1e6
         self.SDC_BACK_GROUND_ENTER_LATENCY = 0
         self.SDC_BACK_GROUND_EXIT_LATENCY = 0
         self.SDC_ACTIVE_IDLE_ENTER_LATENCY = 0
@@ -114,9 +135,9 @@ class Parameter:
         self.SDC_PS3_EXIT_LATENCY = 0
         self.SDC_PS4_ENTER_LATENCY = 0
         self.SDC_PS4_EXIT_LATENCY = 0
-        self.ENABLE_DUMP_POWER_VCD = False
-        self.ENABLE_LOGGING_TOTAL_POWER = False
-        self.TOTAL_POWER_LOG_FILE_NAME = None
+        self.ENABLE_DUMP_POWER_VCD = True
+        self.ENABLE_LOGGING_TOTAL_POWER = True
+        self.TOTAL_POWER_LOG_FILE_NAME = "power.txt"
 
         self.PERF_MEASURE_INTERVAL_MS = 10
 
@@ -146,12 +167,13 @@ class Parameter:
 
         self.READ_BUFFER_MANAGER = self.core_parameter.address_map.BA
         self.WRITE_BUFFER_MANAGER = self.core_parameter.address_map.BA
+        self.GC_BUFFER_MANAGER = self.core_parameter.address_map.BA
         self.WRITE_BUFFER_PRE_ALLOCATION_POS = self.core_parameter.address_map.NVMe
         self.WRITE_BUFFER_PRE_ALLOCATION_CALL_BACK_FIFO = NVMe_FIFO_ID.Resource.value
         # debuging
         self.MEDIA_READ_JOB_LOGGING = 0
 
-        self.product_type = 'general'
+        self.product_type = 'storage'
 
     def set_buffer_count(self):
         self.BA_READ_BUFFER_CNT = 144 * 1000
@@ -174,6 +196,7 @@ class Parameter:
         self.BA_WRITE_BUFFER_MIN_CNT += self.WRITE_DMA_CNT + 5
         self.BA_WRITE_BUFFER_CNT = self.BA_WRITE_BUFFER_MIN_CNT * 5
         self.WRITE_BUFFERED_UNIT_CNT = self.CHANNEL * self.WAY * 3
+        self.GC_BUFFER = 409600
 
     def chip_count_changed(self):
         self.MEDIA_BUFFERED_UNIT_ID_COUNT = self.CHANNEL * self.WAY * 512
@@ -194,9 +217,12 @@ class Parameter:
         if self.ROUND_VBLOCK_NOT_SPECIFIED:
             self.ROUND_VBLOCK = self.VBLOCK_PER_SUPERBLOCK
 
-        self.STREAM_COUNT = self.CHANNEL * self.WAY // self.VBLOCK_PER_SUPERBLOCK
+        self.GC_STREAM = 1
+        self.STREAM_COUNT = self.CHANNEL * self.WAY // self.VBLOCK_PER_SUPERBLOCK + self.GC_STREAM
         self.WRITE_ZERO_STREAM_COUNT = 1
         self.WRITE_ZERO_STREAM_START_ID = self.STREAM_COUNT
+
+        self.SIM_END = False
 
     @property
     def CHANNEL(self):

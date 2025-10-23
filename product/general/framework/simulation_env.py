@@ -1,7 +1,7 @@
 import os
 import sys
 
-from core.framework.common import (CMD_PATH_FIFO_ID, eCMDType, eResourceType)
+from core.framework.common import CMD_PATH_FIFO_ID, eCMDType, eResourceType
 from core.framework.fifo_id import *
 from core.framework.file_path_generator import FilePathGenerator
 from core.framework.latency_logger import LoggingSection
@@ -10,17 +10,18 @@ from core.framework.memory_c import MemoryC
 from core.framework.timer import FrameworkTimer
 from core.modules.buffer_allocator import BufferAllocator
 from core.modules.ecc import ECC
-from product.general.modules.job_generator import JobGenerator
-from product.general.modules.job_scheduler import JobScheduler
 from core.modules.nand import NAND
-from product.general.modules.nand_flash_controller import NandFlashController
 from product.general.config.storage_parameters import Parameter
 from product.general.framework.environment import initialize_environment
 from product.general.modules.address_mapping_layer import AddressMappingLayer
+from product.general.modules.block_copy_manager import BlockCopyManager
 from product.general.modules.data_cache_layer import DataCacheLayer
 from product.general.modules.flash_block_manager import FlashBlockManager
 from product.general.modules.HDMA import HDMA
 from product.general.modules.host import StorageHost
+from product.general.modules.job_generator import JobGenerator
+from product.general.modules.job_scheduler import JobScheduler
+from product.general.modules.nand_flash_controller import NandFlashController
 from product.general.modules.nvme import NVMe
 from product.general.modules.PCIe import PCIe
 from product.general.modules.transaction_scheduler import TransactionScheduler
@@ -53,6 +54,9 @@ class StorageSimulationEnv:
             self.product_args,
             self.address_map.TSU,
             len(CMD_PATH_FIFO_ID))
+        self.gc = BlockCopyManager(self.product_args,
+                                   self.address_map.BCM,
+                                   len(CMD_PATH_FIFO_ID))
 
         self.memc = MemoryC(self.product_args, self.address_map.MEMC)
         self.framework_timer = FrameworkTimer(self.env)
@@ -133,8 +137,13 @@ class StorageSimulationEnv:
         self.nvme.set_qd(qd)
         self.host.set_qd(qd)
 
-    def set_mapping_table(self, test_size):
-        self.aml.set_mapping_table(test_size)
+    def set_mapping_table(self, test_size, sustained):
+        if sustained:
+            for i in self.aml.set_sustained_mapping_table(self.param.SUSTAINED_SIZE, self.param.SUSTAINED_BLOCK_RATE, test_size):
+                self.fbm.set_init_block(i)
+        else:  # normal
+            for i in self.aml.set_mapping_table(test_size):
+                self.fbm.set_init_block(i)
 
     def set_file_prefix(self, prefix_name, qd):
         self.file_path_generator.set_file_prefix(prefix_name, qd)
@@ -145,6 +154,7 @@ class StorageSimulationEnv:
             cmd_count,
             skip_perf_measure=False,
             print_workload=None):
+
         self.host.run(workload, cmd_count)
 
         self.performance_measure.start_perf_measure()

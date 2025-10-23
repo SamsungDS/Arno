@@ -1,7 +1,6 @@
 import inspect
 
 import numpy as np
-
 from core.framework.common import ProductArgs
 
 

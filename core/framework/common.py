@@ -73,12 +73,21 @@ class QFetchType(Enum):
     RoundRobin = auto()
     Priority = auto()  # Lower Queue Index is higher priority. 0 is higher than 1
 
+
 class eCMDType(Enum):
     Read = 0
     ReadDone = auto()
+    ReadDoneSQ = auto()
+    ReadDoneCQ = auto()
+    NANDReadDone = auto()
+    CacheReadDone = auto()
     Write = auto()
     WriteDone = auto()
+    CacheWriteDone = auto()
     Erase = auto()
+    EraseDone = auto()
+    Flush = auto()
+    FlushDone = auto()
     MetaRead = auto()
     MetaWrite = auto()
     MetaWriteDone = auto()
@@ -87,6 +96,12 @@ class eCMDType(Enum):
     MetaReadDone = auto()
     BufferReleaseReq = auto()
     ReadBufferAlloc = auto()
+
+
+class TransactionSourceType(Enum):
+    UserIO = 0
+    GCIO = auto()
+    GCDone = auto()
 
 
 class eMemoryType(Enum):
@@ -101,6 +116,7 @@ class eResourceType(Enum):
     WriteDMADesc = auto()
     MediaBufferedUnitID = auto()
     MediaNandJobID = auto()
+    GCBuffer = auto()
 
 
 class BufferedUnitType(Enum):

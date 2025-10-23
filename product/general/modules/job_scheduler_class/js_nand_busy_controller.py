@@ -1,6 +1,7 @@
 from typing import Any
 
-from product.general.modules.job_scheduler_class.js_nand_config import NANDConfig
+from product.general.modules.job_scheduler_class.js_nand_config import \
+    NANDConfig
 
 
 class PlaneOperationBitmap:

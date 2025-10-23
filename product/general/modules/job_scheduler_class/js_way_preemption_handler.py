@@ -8,7 +8,8 @@ from core.framework.media_common import (NANDCMDType, is_din_cmd, is_dout_cmd,
 from core.framework.vcd_manager import VCDManager
 from product.general.modules.job_scheduler_class.js_nand_busy_controller import \
     NANDBusyController
-from product.general.modules.job_scheduler_class.js_nand_config import NANDConfig
+from product.general.modules.job_scheduler_class.js_nand_config import \
+    NANDConfig
 
 
 class WayState(Enum):

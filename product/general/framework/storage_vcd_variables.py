@@ -7,7 +7,7 @@ class VCDVariables(CoreVCDVariables):
     def init_vcd_variables(self):
         super().init_vcd_variables()
 
-        vcd_cmd_list = [eCMDType.Read, eCMDType.Write]
+        vcd_cmd_list = [eCMDType.Read, eCMDType.Write, eCMDType.Flush]
         self.cmd_issue_count = {cmd_type: 0 for cmd_type in vcd_cmd_list}
         self.cmd_done_count = {cmd_type: 0 for cmd_type in vcd_cmd_list}
         self.pcie_dma_count = {eCMDType.Read: 0, eCMDType.Write: 0}

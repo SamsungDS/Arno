@@ -38,7 +38,6 @@ class PrintWorkload:
             emphasis += '\033[7m'
         else:
             emphasis += '\033[5m'
-
         is_success = self.env.success()
         workload_name = self.workload_name if workload_name is None else workload_name
         self.env.report_output(workload_name, is_success, skip_report)

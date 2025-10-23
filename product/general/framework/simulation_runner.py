@@ -1,4 +1,5 @@
 import sys
+from math import ceil
 
 from product.general.framework.print_workload import PrintWorkload
 from product.general.framework.simulation_env import StorageSimulationEnv
@@ -31,14 +32,28 @@ class SimulationRunner:
         self.env.set_qd(qd)
         self.print_workload.set_qd(qd)
 
-    def set_mapping_table(self, test_size):
-        self.env.set_mapping_table(test_size)
+    def set_mapping_table(self, test_size, sustained=False):
+        self.env.set_mapping_table(test_size, sustained)
+
+    def get_range_bytes(self, workload_type, workload):
+        if workload_type == 'basic':
+            range_bytes = workload.pattern.range_bytes
+        else:
+            df = workload.df
+            workload_io_cmd = df.loc[(df['IO Type'] == 'Write') | (df['IO Type'] == 'Read'), ['Min Offset', 'Size (B)']]
+
+            def calculate_aligned_size(min_offset, size):
+                return int(ceil((min_offset + size) / self.param.FTL_MAP_UNIT_SIZE) - (
+                            min_offset // self.param.FTL_MAP_UNIT_SIZE)) * self.param.FTL_MAP_UNIT_SIZE
+            range_bytes = workload_io_cmd.apply(lambda x: calculate_aligned_size(x['Min Offset'], x['Size (B)']), axis=1).sum()
+        return range_bytes
 
     def get_max_mapping_table(self, workload_list):
         max_map_size = 0
         for workload in workload_list:
-            if workload.pattern.range_bytes // self.param.FTL_MAP_UNIT_SIZE > max_map_size:
-                max_map_size = workload.pattern.range_bytes // self.param.FTL_MAP_UNIT_SIZE
+            range_bytes = self.get_range_bytes(self.param.WORKLOAD_TYPE, workload)
+            if range_bytes // self.param.FTL_MAP_UNIT_SIZE > max_map_size:
+                max_map_size = range_bytes // self.param.FTL_MAP_UNIT_SIZE
         return max_map_size
 
     def set_file_prefix(self, workload_name):

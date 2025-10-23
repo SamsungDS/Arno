@@ -13,7 +13,7 @@ class PLPParameter:
 class CoreParameter(metaclass=Singleton):
     def __init__(self):
         self.address_map = AddressMap()
-        self.ENABLE_VCD = 0
+        self.ENABLE_VCD = 1
         self.ENABLE_SUBMODULE_WAKEUP_VCD = 0
         self.VCD_DUMP_END_TIME_MS = -1
         self.VCD_FILE_NAME = 'simpy.vcd'
@@ -27,9 +27,9 @@ class CoreParameter(metaclass=Singleton):
         self.ENABLE_LATENCY_LOGGER = 0
         self.MEDIA_READ_JOB_LOGGING = 0
         self.RECORD_SUBMODULE_UTILIZATION = 0
-        self.GENERATE_DIAGRAM = 0
+        self.GENERATE_DIAGRAM = 1
         self.ENABLE_PERFORMANCE_RECORD_TO_TERMINAL = 1
-        self.GENERATE_SUBMODULE_DIAGRAM = 0
+        self.GENERATE_SUBMODULE_DIAGRAM = 1
         self.IN_ORDER_DATA_TRANSFER = 0
         self.DEBUG_MODE = 0
         self.SKIP_BUFFER_CHECK = 0
@@ -47,9 +47,9 @@ class CoreParameter(metaclass=Singleton):
         self.SC_ACTIVE_IDLE_TRIGGER_INTERVAL = 0
         self.SC_PS3_TRIGGER_INTERVAL = 0
         self.SC_PS4_TRIGGER_INTERVAL = 0
-        self.ENABLE_DUMP_POWER_VCD = False
-        self.ENABLE_LOGGING_TOTAL_POWER = False
-        self.TOTAL_POWER_LOG_FILE_NAME = None
+        self.ENABLE_DUMP_POWER_VCD = True
+        self.ENABLE_LOGGING_TOTAL_POWER = True
+        self.TOTAL_POWER_LOG_FILE_NAME = "power.txt"
 
         self.KB = 1024
         self.MAPUNIT_SIZE = 4 * self.KB  # Bytes
@@ -76,6 +76,7 @@ class CoreParameter(metaclass=Singleton):
         self.WRITE_BUFFER_MANAGER = self.address_map.BA
         self.WRITE_BUFFER_PRE_ALLOCATION_POS = None
         self.WRITE_BUFFER_PRE_ALLOCATION_CALL_BACK_FIFO = None
+        self.GC_BUFFER_MANAGER = self.address_map.BA
 
         self.BA_READ_BUFFER_MIN_CNT = 0
         self.BA_WRITE_BUFFER_MIN_CNT = 0
@@ -125,15 +126,6 @@ class CoreParameter(metaclass=Singleton):
         self.dram_param['BANDWIDTH_B_PER_NS'] = self.dram_param['BANDWIDTH'] * \
             1024 * 1024 / 1e9
 
-        self.HOST_INTERFACE_GEN = 5
-        self.HOST_INTERFACE_GEN_TARGET_PERF_MBS = {
-            6: {'read': 2_8400, 'write': 2_8400},
-            5: {'read': 1_4900, 'write': 1_4800},
-            4: {'read': 7494, 'write': 7310},
-        }
-        self.HOST_4K_TRANSFER_LATENCY = {'read': round(4096 / self.HOST_INTERFACE_GEN_TARGET_PERF_MBS[self.HOST_INTERFACE_GEN]['read'] * 1e3, 1),
-                                         'write': round(4096 / self.HOST_INTERFACE_GEN_TARGET_PERF_MBS[self.HOST_INTERFACE_GEN]['write'] * 1e3, 1)}
-
         self.NAND_PARAM = \
             {
                 'TLC_EXAMPLE': TLCExample()
@@ -148,7 +140,7 @@ class CoreParameter(metaclass=Singleton):
         # about 100 us
         self.PGM_OVERHEAD_PER_SUSPEND = 100000
 
-        self.tNSC = 400  #  nand status check
+        self.tNSC = 400  # nand status check
         self.tR_cmd = 200
         self.confirm_cmd = 200
         self.latch_dump_up_cmd = 200

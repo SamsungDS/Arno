@@ -1,7 +1,6 @@
 import math
 
 import simpy
-
 from core.backbone.address_map import AddressMap
 from core.backbone.bus import Bus
 from core.backbone.power_manager import PowerManager

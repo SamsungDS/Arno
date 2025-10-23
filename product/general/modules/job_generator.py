@@ -3,15 +3,18 @@ from collections import deque
 from typing import Union
 
 from core.framework.common import (BufferedUnitType, MemAccessInfo,
-                                   QueueDepthChecker, StatusType, eCMDType,
+                                   QueueDepthChecker, StatusType,
+                                   TransactionSourceType, eCMDType,
                                    eResourceType)
 from core.framework.media_common import *
 from core.modules.parallel_unit import ParallelUnit
-from product.general.provided_interface import job_generator_pif, job_scheduler_pif
-from product.general.provided_interface.product_pif_factory import ProductPIFfactory
 from product.general.framework.ppn_translator import PhysicalInfo
 from product.general.framework.storage_vcd_variables import VCDVariables
 from product.general.framework.timer import Timer
+from product.general.provided_interface import (job_generator_pif,
+                                                job_scheduler_pif)
+from product.general.provided_interface.product_pif_factory import \
+    ProductPIFfactory
 
 
 class CacheOpContext:
@@ -41,18 +44,18 @@ class BufferedUnit:
         self.nand_packet['buffered_unit_type'] = buffered_unit_type
 
     def construct(self, packet, sbn, physical_info):
-        assert packet['cmd_type'] == eCMDType.Read, 'not support meta read yet'
+        assert packet['nvm_transaction']['transaction_type'] == eCMDType.Read, 'not support meta read yet'
         self.addr = physical_info.addr_offset
         self.page = physical_info.page
         self.nand_packet = {}
-        self.nand_packet['cmd_type'] = packet['cmd_type']
+        self.nand_packet['cmd_type'] = packet['nvm_transaction']['transaction_type']
         self.nand_packet['slot_id_list'] = [-1] * \
             self.MAX_NVM_TRANS_COUNT_PER_BUFFERED_UNIT
 
         self.nand_packet['channel'] = physical_info.ch
         self.nand_packet['way'] = physical_info.way
         self.nand_packet['mapunit'] = physical_info.lpo
-        self.nand_packet['issue_time'] = packet['issue_time']
+        self.nand_packet['issue_time'] = packet.get('issue_time', 0)
         self.nand_packet['page'] = physical_info.page
         self.nand_packet['physical_page'] = physical_info.addr_offset
         self.nand_packet['block'] = sbn
@@ -66,14 +69,14 @@ class BufferedUnit:
             self.MAX_NVM_TRANS_COUNT_PER_BUFFERED_UNIT
         self.nand_packet['host_packets'] = [-1] * \
             self.MAX_NVM_TRANS_COUNT_PER_BUFFERED_UNIT
-        self.nand_packet['is_seq_buffered_unit'] = packet['seq_flag']
-        if packet['seq_flag']:
-            self.nand_packet['plane'] = (
-                (physical_info.plane // self.param.MULTI_PLANE_READ) * (
-                    self.param.MULTI_PLANE_READ %
-                    self.param.PLANE))
-        else:
-            self.nand_packet['plane'] = physical_info.plane
+        # self.nand_packet['is_seq_buffered_unit'] = packet['seq_flag']
+        # if packet['seq_flag']:
+        #   self.nand_packet['plane'] = (
+        #         (physical_info.plane // self.param.MULTI_PLANE_READ) * (
+        #             self.param.MULTI_PLANE_READ %
+        #             self.param.PLANE))
+        # else:
+        #    self.nand_packet['plane'] = physical_info.plane
         # TODO 추후 전체 수정 필요할지 고민해보자
         self.nand_packet['lpn_list'] = [-1] * \
             self.MAX_NVM_TRANS_COUNT_PER_BUFFERED_UNIT
@@ -86,10 +89,11 @@ class BufferedUnit:
     def add(self, data, offset):
         self.nand_packet['host_packets'][offset] = data
         self.nand_packet['valid_page_bitmap'][offset] = 1
-        self.nand_packet['valid_sector_bitmap'][offset] = data['valid_sector_bitmap'][:]
+        # temp>> to be fixed
+        self.nand_packet['valid_sector_bitmap'][offset] = self.int_to_list(data['nvm_transaction']['valid_sector_bitmap'])
         self.nand_packet['slot_id_list'][offset] = data['slot_id']
-        self.nand_packet['lpn_list'][offset] = data['lpn']
-        self.nand_packet['ppn_list'][offset] = data['nvm_transaction_flash'].ppn
+        self.nand_packet['lpn_list'][offset] = data['nvm_transaction']['lpn']
+        self.nand_packet['ppn_list'][offset] = data['nvm_transaction_flash']['ppn']
 
         self.buffered_nvm_trans_count += 1
 
@@ -99,6 +103,12 @@ class BufferedUnit:
     def clear(self):
         self.nand_packet = {}
         self.buffered_nvm_trans_count = 0
+
+    # temp
+    def int_to_list(self, n, size=8):
+        if not (0 <= n < 2 ** size):
+            raise ValueError(f"Input must be between 0 and {2 ** size - 1}")
+        return [(n >> i) & 1 for i in reversed(range(size))]
 
 
 class SeqReadBufferedUnit(BufferedUnit):
@@ -146,6 +156,12 @@ class SeqReadBufferedUnit(BufferedUnit):
         else:
             return not (self.is_empty(offset - 1))
 
+    def is_sequential_lpo(self, user, offset):
+        if user == 'gc':
+            return True
+        elif user == 'host':
+            return self.is_previous_offset_valid(offset) and self.is_current_following_offset_empty(offset)
+
 
 class SequentialReadBuffer:
     def generate_buffer(self, cls, *args):
@@ -153,8 +169,8 @@ class SequentialReadBuffer:
             return [cls(*args, i)
                     for i in range(self.param.WAY * self.param.CHANNEL)]
 
-        return [cls(*args, i) for i in range(self.param.PLANE * \
-                    self.param.WAY * self.param.CHANNEL)]
+        return [cls(*args, i) for i in range(self.param.PLANE *
+                                             self.param.WAY * self.param.CHANNEL)]
 
     def get_id(self, physical_info: PhysicalInfo):
         if self.param.MULTI_PLANE_READ == self.param.PLANE:
@@ -374,6 +390,7 @@ class JobGenerator(ParallelUnit):
 
         # Added for buffering
         self.STREAM_COUNT = 2
+        self.cell_type = self.param.NAND_CELL_TYPE
 
         self.media_perf_record = False
         self.init_nand_config()
@@ -431,11 +448,11 @@ class JobGenerator(ParallelUnit):
             i //
             self.NVM_TRANS_COUNT_PER_FULL_PLANE for i in range(
                 self.NVM_TRANS_COUNT_PER_FULL_PLANE *
-                Cell.TLC.value)]
+                self.cell_type.value)]
         self.mapunit_idx_to_plane_idx = [
             (i // self.MAPUNIT_PER_PLANE) %
             self.param.PLANE for i in range(
-                self.NVM_TRANS_COUNT_PER_FULL_PLANE * Cell.TLC.value)]
+                self.NVM_TRANS_COUNT_PER_FULL_PLANE * self.cell_type.value)]
 
         self.plane_unique_id = [[[ch * self.CHIP_COUNT + way * self.param.PLANE + plane
                                   for plane in range(self.param.PLANE)]
@@ -459,7 +476,7 @@ class JobGenerator(ParallelUnit):
                     mapunit for mapunit in range(
                         self.param.FTL_MAP_UNIT_PER_PLANE)] for plane in range(
                     self.param.PLANE)] for page in range(
-                        Cell.TLC.value)]
+                self.cell_type.value)]
         self.buffering_write_packet_list: List[List[List[Union[dict, None]]]] = [
             [[None for _ in range(self.param.WAY)] for _ in range(self.param.CHANNEL)] for _ in
             range(self.STREAM_COUNT)]
@@ -484,6 +501,7 @@ class JobGenerator(ParallelUnit):
 
         self.write_buffered_unit_id = 0
         self.read_buffer_list = {}
+        self.overlap_lpn_cnt = 0
 
     def make_js_qd_checker(self):
         for i in range(self.param.CHANNEL):
@@ -553,8 +571,7 @@ class JobGenerator(ParallelUnit):
         self.copy_from_host_packet(packet, queue_data)
 
         queue_data['plane'] = nand_plane_id
-        queue_data['global_plane_id'] = self.plane_unique_id[queue_data['channel']
-                                                             ][queue_data['way']][nand_plane_id]
+        queue_data['global_plane_id'] = self.plane_unique_id[queue_data['channel']][queue_data['way']][nand_plane_id]
         queue_data['nand_cmd_type'] = nand_cmd_type
         queue_data['urgent'] = is_urgent
         queue_data['meta'] = is_meta
@@ -784,7 +801,7 @@ class JobGenerator(ParallelUnit):
     def program_nand_job_generate(self, packet):
         return self.generate_program_packet(packet)
 
-    def generate_slc_1p_program_packet(self, program_1p_target_plane, packet):
+    def generate_MLC_1p_program_packet(self, program_1p_target_plane, packet):
         cmd_type: eCMDType = packet['cmd_type']
         meta: bool = (cmd_type == eCMDType.MetaWrite)
         cache_op_ctxt = CacheOpContext()
@@ -816,6 +833,7 @@ class JobGenerator(ParallelUnit):
 
         data_list = din_cmd_list
         data_list.append(tprog_cmd)
+
         return data_list
 
     def generate_din_cmd(self, packet, nvm_trans_bitmap):
@@ -830,10 +848,7 @@ class JobGenerator(ParallelUnit):
         except KeyError:  # dummy pgm
             pass
 
-        for mapunit_offset in range(
-                0,
-                len(nvm_trans_bitmap),
-                self.MAPUNIT_PER_PLANE):
+        for mapunit_offset in range(0, len(nvm_trans_bitmap), self.MAPUNIT_PER_PLANE):
             page_offset = self.mapunit_idx_to_page_idx[mapunit_offset]
             plane_offset = self.mapunit_idx_to_plane_idx[mapunit_offset]
             is_reclaim = packet.get('is_reclaim', False)
@@ -845,7 +860,7 @@ class JobGenerator(ParallelUnit):
                 nand_plane_id=plane_offset,
                 is_meta=meta,
                 is_reclaim=is_reclaim)
-            if packet['user'] == 'host':
+            if packet['user'] in ['host', 'gc']:
                 self.set_host_packet_to_din_cmd(packet, din_cmd, mapunit_offset)
             else:
                 self.set_buffer_ptr_to_din_cmd(packet, din_cmd, mapunit_offset)
@@ -912,13 +927,14 @@ class JobGenerator(ParallelUnit):
             for mapunit_idx, valid in enumerate(valid_sector_bitmap):
                 if valid == 1:
                     valid_idx_list.append(mapunit_idx)
-
-            for idx, resource in enumerate(packet['resource_list']):
-                mapunit_idx = valid_idx_list[idx]
-                self.read_buffer_list[str(
-                    buffered_unit_id)][plane_idx][mapunit_idx] = resource
+            if 'resource_list' in packet:
+                for idx, resource in enumerate(packet['resource_list']):
+                    mapunit_idx = valid_idx_list[idx]
+                    self.read_buffer_list[str(
+                        buffered_unit_id)][plane_idx][mapunit_idx] = resource
 
         if self.media_nand_job_done(buffered_unit_id):
+
             buffered_unit = self.buffered_unit_id_allocator.read(buffered_unit_id)
 
             self.release_resource(eResourceType.MediaBufferedUnitID, buffered_unit_id)
@@ -932,14 +948,15 @@ class JobGenerator(ParallelUnit):
                 plane_idx = i // self.param.PLANE
                 mapunit = i % self.param.MAPUNIT_PER_PLANE
 
-                if host_packet['nvm_transaction'].transaction_type == 'read':
-                    host_packet['nvm_transaction'].transaction_type = 'nand_read_done'
-                    host_packet['nvm_transaction'].buffer_ptr = self.read_buffer_list[str(
-                        buffered_unit_id)][plane_idx][mapunit]
-                elif host_packet['nvm_transaction'].transaction_type == 'write':
-                    host_packet['nvm_transaction'].transaction_type = 'write_done'
-                elif host_packet['nvm_transaction'].transaction_type == 'erase':
-                    host_packet['nvm_transaction'].transaction_type = 'erase_done'
+                if host_packet['nvm_transaction'].transaction_type == eCMDType.Read:
+                    host_packet['nvm_transaction'].transaction_type = eCMDType.NANDReadDone
+                    if host_packet['nvm_transaction'].transaction_source_type == TransactionSourceType.UserIO:
+                        host_packet['nvm_transaction'].buffer_ptr = self.read_buffer_list[str(
+                            buffered_unit_id)][plane_idx][mapunit]
+                elif host_packet['nvm_transaction'].transaction_type == eCMDType.Write:
+                    host_packet['nvm_transaction'].transaction_type = eCMDType.WriteDone
+                elif host_packet['nvm_transaction'].transaction_type == eCMDType.Erase:
+                    host_packet['nvm_transaction'].transaction_type = eCMDType.EraseDone
                 self.send_sq(
                     host_packet,
                     self.address,
@@ -970,8 +987,7 @@ class JobGenerator(ParallelUnit):
                 description='TB Allocate')
 
     def nand_job_buffer_allocate(self, queue_data, jg_id):
-        nand_job_id_list = yield from self.allocate_resource(self.feature.JG_NB_ALLOCATE, eResourceType.MediaNandJobID, 1,
-                                                     [queue_data], s_id=jg_id)
+        nand_job_id_list = yield from self.allocate_resource(self.feature.JG_NB_ALLOCATE, eResourceType.MediaNandJobID, 1, [queue_data], s_id=jg_id)
         queue_data['nand_job_id'] = nand_job_id_list[0]
         self.wakeup(
             self.nand_job_buffer_allocate,
@@ -1014,11 +1030,15 @@ class JobGenerator(ParallelUnit):
         return queue_data_list
 
     def nvm_trans_flash_handler(self, packet, s_id):
-        if packet['nvm_transaction'].transaction_type == 'read':
-            self.received_seq_read(packet, 0)  # no stream id
-        elif packet['nvm_transaction'].transaction_type == 'write':
+        if packet['nvm_transaction'].transaction_type == eCMDType.Read:
+            self.received_seq_read(packet, 0)
+            # if packet['nvm_transaction'].transaction_source_type == TransactionSourceType.UserIO:
+            #     self.received_seq_read(packet, 0)  # no stream id
+            # elif packet['nvm_transaction'].transaction_source_type == TransactionSourceType.GCIO :
+            #     self.received_ran_read(packet, 0)   # no stream id
+        elif packet['nvm_transaction'].transaction_type == eCMDType.Write or packet['nvm_transaction'].transaction_type == eCMDType.Flush:
             self.received_write(packet, s_id)
-        elif packet['nvm_transaction'].transaction_type == 'erase':
+        elif packet['nvm_transaction'].transaction_type == eCMDType.Erase:
             assert (packet['nvm_transaction_flash'].address.page == 0)
             nand_packet = self.get_erase_nand_packet(packet)
             self.wakeup(
@@ -1046,7 +1066,7 @@ class JobGenerator(ParallelUnit):
 
 # For write
     def received_write(self, packet, device_stream_id):
-        assert packet['nvm_transaction'].transaction_type == 'write'
+        assert packet['nvm_transaction'].transaction_type == eCMDType.Write or packet['nvm_transaction'].transaction_type == eCMDType.Flush
         self.wakeup(
             src_func=self.address,
             dst_func=self.write_handler,
@@ -1055,7 +1075,13 @@ class JobGenerator(ParallelUnit):
             dst_id=device_stream_id)
 
     def write_handler(self, packet, device_stream_id):
-        nand_packet = self.write_buffering(device_stream_id, packet)
+        device_stream_id = packet['nvm_transaction'].stream_id
+        if packet['nvm_transaction'].transaction_type == eCMDType.Write:
+            nand_packet = self.write_buffering(device_stream_id, packet)
+        else:
+            self.check_flush(device_stream_id, packet)
+            nand_packet = {}
+
         if nand_packet:
             self.wakeup(
                 self.nvm_trans_flash_handler,
@@ -1065,11 +1091,18 @@ class JobGenerator(ParallelUnit):
                 dst_id=0,
                 description='buffered_unit_read_process')
 
+    def check_flush(self, device_stream_id, packet):
+        for ch in range(self.param.CHANNEL):
+            for way in range(self.param.WAY):
+                if self.buffering_write_packet_list[device_stream_id][ch][way] is not None:
+                    print(self.buffering_write_packet_list[device_stream_id][ch][way], ch, way)
+                    assert False, "flush command was executed, but the write buffer was not empty."
+
     def write_buffering(self, device_stream_id, packet):
         ch = packet['nvm_transaction_flash'].address.channel
         way = packet['nvm_transaction_flash'].address.way
         plane = packet['nvm_transaction_flash'].address.plane
-        page = packet['nvm_transaction_flash'].address.page % Cell.TLC.value
+        page = packet['nvm_transaction_flash'].address.page % self.cell_type.value
         mapunit = packet['nvm_transaction_flash'].address.lpo
 
         nand_packet = self.get_program_nand_packet(device_stream_id, packet)
@@ -1077,23 +1110,25 @@ class JobGenerator(ParallelUnit):
         idx_in_program_unit = self.idx_in_program_unit[page][plane][mapunit]
         idx_in_pgm_unit_by_gaudi_map_unit = idx_in_program_unit
 
-        try:
-            nand_packet['valid_page_bitmap'][idx_in_pgm_unit_by_gaudi_map_unit] = int(
-                packet is not None)
-            nand_packet['valid_sector_bitmap'][idx_in_pgm_unit_by_gaudi_map_unit] = [
-                1] * self.param.SECTOR_PER_GAUDI_MAP_UNIT
+        if packet['nvm_transaction'].hazard_flag:
+            self.check_data_hazard(packet)
 
-            if packet and packet.get(
-                    'by_hcore') and packet['hcore_cmd_type'] == 'write_uncor':
-                nand_packet['faked_uncor_sbitmap'][idx_in_pgm_unit_by_gaudi_map_unit] = [
-                    1] * self.param.SECTOR_PER_GAUDI_MAP_UNIT
-        except IndexError:
-            breakpoint()
+        nand_packet['valid_page_bitmap'][idx_in_pgm_unit_by_gaudi_map_unit] = int(
+            packet is not None)
+        nand_packet['valid_sector_bitmap'][idx_in_pgm_unit_by_gaudi_map_unit] = [
+            1] * self.param.SECTOR_PER_GAUDI_MAP_UNIT
+
+        if packet and packet.get(
+                'by_hcore') and packet['hcore_cmd_type'] == 'write_uncor':
+            nand_packet['faked_uncor_sbitmap'][idx_in_pgm_unit_by_gaudi_map_unit] = [
+                1] * self.param.SECTOR_PER_GAUDI_MAP_UNIT
+        # except IndexError:
+        #     breakpoint()
 
         if packet is not None:
             nand_packet['host_packets'][idx_in_pgm_unit_by_gaudi_map_unit] = packet
             nand_packet['slot_id_list'][idx_in_pgm_unit_by_gaudi_map_unit] = packet['slot_id']
-            nand_packet['lpn_list'][idx_in_pgm_unit_by_gaudi_map_unit] = packet['lpn']
+            nand_packet['lpn_list'][idx_in_pgm_unit_by_gaudi_map_unit] = packet['nvm_transaction'].lpn
 
         if idx_in_pgm_unit_by_gaudi_map_unit == len(
                 nand_packet['valid_page_bitmap']) - 1:
@@ -1101,6 +1136,26 @@ class JobGenerator(ParallelUnit):
             return nand_packet
 
         return {}
+
+    def check_data_hazard(self, packet):
+        lpn = packet['nvm_transaction'].lpn
+        for stream_id in range(self.STREAM_COUNT):
+            for ch_num in range(self.param.CHANNEL):
+                for way_num in range(self.param.WAY):
+                    buffering_nand_packet = self.buffering_write_packet_list[stream_id][ch_num][way_num]
+                    if buffering_nand_packet is not None:
+                        for item in buffering_nand_packet['host_packets']:
+                            if item:
+                                if item['nvm_transaction'].lpn == lpn:
+                                    item['nvm_transaction'].hazard_flag = True
+                                    self.overlap_lpn_cnt += 1
+        for item in self.buffered_unit_id_allocator.resource_buffer.buffer:
+            if item and item.get('cmd_type') == eCMDType.Write:
+                for host_packet in item['host_packets']:
+                    if host_packet['nvm_transaction'].lpn == lpn:
+                        host_packet['nvm_transaction'].hazard_flag = True
+                        self.overlap_lpn_cnt += 1
+        packet['nvm_transaction'].hazard_flag = False
 
     def get_program_nand_packet(self, device_stream_id, packet) -> dict:
         ch = packet['nvm_transaction_flash'].address.channel
@@ -1132,12 +1187,12 @@ class JobGenerator(ParallelUnit):
         nand_packet['user'] = user
 
         # cell_type = physical_info.cell_type
-        cell_type = Cell.TLC
+        cell_type = self.cell_type
         ch = packet['nvm_transaction_flash'].address.channel
         way = packet['nvm_transaction_flash'].address.way
         block = packet['nvm_transaction_flash'].address.block
         page = packet['nvm_transaction_flash'].address.page
-        wl = page // Cell.TLC.value
+        wl = page // cell_type.value
         ssl = 0
         mapunit = packet['nvm_transaction_flash'].address.lpo
         program_nvm_trans_count = cell_type.value * \
@@ -1168,24 +1223,33 @@ class JobGenerator(ParallelUnit):
     def generate_write_nand_packet_list(
             self, packet, device_stream_id, buffered_unit_id):
         nand_packet = self.generate_program_buffered_unit(
-            buffered_unit_id, self.address, 'host', packet, device_stream_id)
+            buffered_unit_id, self.address, packet["user"], packet, device_stream_id)
         nand_packet['issue_time'] = self.env.now
         return nand_packet
 
 # for read
     def received_seq_read(self, packet, fifo_id):
-        assert (packet['user'] == 'host' in packet['user']
-                ) and packet['cmd_type'] == eCMDType.Read
+        assert packet['nvm_transaction']['transaction_type'] == eCMDType.Read
+
         self.wakeup(
             src_func=self.address,
             dst_func=self.sequential_read_handler,
             packet=packet,
             src_id=fifo_id)
 
+    def received_ran_read(self, packet, fifo_id):
+        assert packet['nvm_transaction']['transaction_type'] == eCMDType.Read
+
+        self.wakeup(
+            src_func=self.address,
+            dst_func=self.random_read_handler,
+            packet=packet,
+            src_id=fifo_id)
+
     def sequential_read_handler(self, packet):
         sbn = packet['nvm_transaction_flash'].address.block
         page = packet['nvm_transaction_flash'].address.page
-        cell_type = Cell.TLC
+        cell_type = self.cell_type
         address_offset = page % cell_type.value  # to be reviewed
         wl = page // cell_type.value  # to be reviewed
         ssl = 0
@@ -1193,6 +1257,7 @@ class JobGenerator(ParallelUnit):
         ch = packet['nvm_transaction_flash'].address.channel
         plane = packet['nvm_transaction_flash'].address.plane
         lpo = packet['nvm_transaction_flash'].address.lpo
+        user = packet['user']
 
         physical_info = PhysicalInfo(
             address_offset,
@@ -1206,7 +1271,6 @@ class JobGenerator(ParallelUnit):
             cell_type)
         read_buffered_unit = self.buffer.get_buffered_unit_ptr(physical_info)
         if not read_buffered_unit:
-
             read_buffered_unit.construct(packet, sbn, physical_info)
             buffered_unit_id_list = [
                 i for i in range(
@@ -1217,10 +1281,12 @@ class JobGenerator(ParallelUnit):
         timer: Timer = self.buffer.get_timer(read_buffered_unit.id)
         buffered_unit_offset = self.calculate_buffered_unit_offset(
             physical_info.plane, physical_info.lpo)
+
         if self.is_physically_sequential(
                 read_buffered_unit,
                 physical_info,
-                buffered_unit_offset):
+                buffered_unit_offset,
+                user):
             read_buffered_unit.add(packet, buffered_unit_offset)
             if read_buffered_unit.is_full():
                 yield from timer.reset('Buffered_unit Full')
@@ -1241,7 +1307,7 @@ class JobGenerator(ParallelUnit):
     def random_read_handler(self, packet):
         sbn = packet['nvm_transaction_flash'].address.block
         page = packet['nvm_transaction_flash'].address.page
-        cell_type = Cell.TLC
+        cell_type = self.cell_type
         address_offset = page % cell_type.value  # to be reviewed
         wl = page // cell_type.value  # to be reviewed
         ssl = 0
@@ -1289,7 +1355,7 @@ class JobGenerator(ParallelUnit):
 
     def get_physical_info(self, ppn):
         # sb_cell_type = self.sbn_to_cell_type.get_cell_type(sbn)
-        return self.ppn_translator[Cell.TLC].get_physical_info_from_ppn(ppn)
+        return self.ppn_translator[self.cell_type].get_physical_info_from_ppn(ppn)
 
     def calculate_buffered_unit_offset(self, plane, lpo):
         return plane * self.param.FTL_MAP_UNIT_PER_PLANE + lpo
@@ -1298,12 +1364,14 @@ class JobGenerator(ParallelUnit):
             self,
             read_buffered_unit,
             physical_info,
-            buffered_unit_offset):
+            buffered_unit_offset,
+            user):
+        nand_packet = read_buffered_unit.get()
         if read_buffered_unit.buffered_nvm_trans_count == 0:
             return True
         else:
-            return read_buffered_unit.get_page_addr() == physical_info.page and read_buffered_unit.is_current_following_offset_empty(
-                buffered_unit_offset) and read_buffered_unit.is_previous_offset_valid(buffered_unit_offset)
+            return read_buffered_unit.get_page_addr() == physical_info.page and \
+                   read_buffered_unit.is_sequential_lpo(user, buffered_unit_offset) and nand_packet['user'] == user
 
     def issue_buffered_unit(self, caller, read_buffered_unit):
         nand_packet = read_buffered_unit.get()
@@ -1341,7 +1409,8 @@ class JobGenerator(ParallelUnit):
                 dst_id=jg_id,
                 description='Operation Done')
         elif packet['src'] == self.address_map.TSU:
-            device_stream_id = packet['host_stream_id']
+            device_stream_id = packet['nvm_transaction'].stream_id
+
             self.wakeup(
                 self.address,
                 self.nvm_trans_flash_handler,

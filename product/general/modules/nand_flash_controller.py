@@ -1,7 +1,8 @@
 from collections import deque
 
 from core.framework.cell_type import Cell
-from core.framework.common import MemAccessInfo, eResourceType
+from core.framework.common import (MemAccessInfo, TransactionSourceType,
+                                   eResourceType)
 from core.framework.fifo_id import NFC_FIFO_ID
 from core.framework.media_common import (NANDCMDType, eMediaFifoID,
                                          generate_dbl_info, get_channel_id,
@@ -9,7 +10,8 @@ from core.framework.media_common import (NANDCMDType, eMediaFifoID,
 from core.modules.parallel_unit import ParallelUnit
 from core.provided_interface import ecc_pif, nand_pif
 from product.general.provided_interface import job_scheduler_pif
-from product.general.provided_interface.product_pif_factory import ProductPIFfactory
+from product.general.provided_interface.product_pif_factory import \
+    ProductPIFfactory
 
 
 class NFCStats:
@@ -263,11 +265,12 @@ class NandFlashController(ParallelUnit):
     def need_read_buffer_allocate(self, packet):
         if self.SKIP_READ_BUFFER_ALLOC:
             return False
-
+        if 'host_packet_list' in packet:
+            if packet['host_packet_list'][0]['nvm_transaction'].transaction_source_type == TransactionSourceType.GCIO:
+                return False
         try:
             nand_cmd_type = packet['nand_cmd_type']
-            return packet['user'] in (
-                'host', 'cm') and is_dout_cmd(nand_cmd_type)
+            return packet['user'] in 'host' and is_dout_cmd(nand_cmd_type)
         except KeyError:
             return False
 
@@ -318,17 +321,20 @@ class NandFlashController(ParallelUnit):
         nand_cmd_type = packet['nand_cmd_type']
         if is_din_cmd(nand_cmd_type):
             if 'buffer_ptr_list' in packet:
-                valid_buffer_ptr_list = [
-                    ptr for ptr in packet['buffer_ptr_list'] if ptr != MemAccessInfo.INVALID_ADDR]
+                valid_buffer_ptr_list = {ptr: 'host' for ptr in packet['buffer_ptr_list'] if ptr != MemAccessInfo.INVALID_ADDR}
             # user : host
             elif any('buffer_ptr' in host_packet['nvm_transaction'] for host_packet in packet['host_packet_list']):
-                valid_buffer_ptr_list = [
-                    host_packet['nvm_transaction']['buffer_ptr'] for host_packet in packet['host_packet_list']]
+                valid_buffer_ptr_list = {host_packet['nvm_transaction']['buffer_ptr']: host_packet['user'] for host_packet in packet['host_packet_list']}
+
             else:
-                valid_buffer_ptr_list = []
+                valid_buffer_ptr_list = {}
             for buffer_ptr in valid_buffer_ptr_list:
-                yield from self.memc.read_memory(MemAccessInfo(buffer_ptr, eResourceType.WriteBuffer,
-                                                               _request_size_B=self.param.FTL_MAP_UNIT_SIZE))
+                if buffer_ptr == -1:
+                    continue
+                if valid_buffer_ptr_list[buffer_ptr] == 'host':
+                    yield from self.memc.read_memory(MemAccessInfo(buffer_ptr, eResourceType.WriteBuffer, _request_size_B=self.param.FTL_MAP_UNIT_SIZE))
+                elif valid_buffer_ptr_list[buffer_ptr] == 'gc':
+                    yield from self.memc.read_memory(MemAccessInfo(buffer_ptr, eResourceType.GCBuffer, _request_size_B=self.param.FTL_MAP_UNIT_SIZE))
             self.wakeup(
                 self.fdma,
                 self.nand_control,
@@ -338,7 +344,10 @@ class NandFlashController(ParallelUnit):
         elif is_dout_cmd(nand_cmd_type):
             if packet['fdma_target_buffer_ptr_list']:
                 buffer_ptr = packet['fdma_target_buffer_ptr_list'].popleft()
-                yield from self.memc.write_memory(MemAccessInfo(buffer_ptr, eResourceType.ReadBuffer, _request_size_B=self.param.FTL_MAP_UNIT_SIZE))
+                if packet['user'] == 'host':
+                    yield from self.memc.write_memory(MemAccessInfo(buffer_ptr, eResourceType.ReadBuffer, _request_size_B=self.param.FTL_MAP_UNIT_SIZE))
+                elif packet['user'] == 'gc':
+                    yield from self.memc.write_memory(MemAccessInfo(buffer_ptr, eResourceType.GCBuffer, _request_size_B=self.param.FTL_MAP_UNIT_SIZE))
             self.wakeup(
                 self.fdma,
                 self.dma_done,
@@ -370,6 +379,7 @@ class NandFlashController(ParallelUnit):
                 description='Read Buffer Allocate Done')
         else:
             queue_data = self.nand_job_id_allocator.read(dbl_info['nand_job_id'])
+
             if dbl_info['src'] == self.address_map.NAND:
                 assert fifo_id == NFC_FIFO_ID.DonePath.value
                 self.wakeup(

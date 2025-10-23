@@ -47,6 +47,10 @@ class CommandRecorder:
             cmd_size,
             start_lpn,
             issue_time):
+        if cmd_id >= len(self.command_log):
+            print(self.command_log)
+            print(cmd_id)
+            print(cmd_type)
         if self.command_log[cmd_id] is None:
             self.command_log[cmd_id] = CommandItem()
 

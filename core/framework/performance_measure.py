@@ -56,16 +56,19 @@ class PerformanceMeasure:
             print(
                 'Time(ns),Read(MB/s),Read(KIOPs),Write(MB/s),Write(KIOPs)',
                 file=log_file)
-
+        break_count = 0
         while True:
+
             yield self.env.timeout(interval)
 
             read_perf_MB_s, read_perf_KIOPs = self.record_perf(eCMDType.Read)
-            write_perf_MB_s, write_perf_KIOPs = self.record_perf(
-                eCMDType.Write)
+            write_perf_MB_s, write_perf_KIOPs = self.record_perf(eCMDType.Write)
 
-            if read_perf_MB_s == 0 and write_perf_MB_s == 0:
+            if self.param.SIM_END or break_count == 100000:
+                self.param.SIM_END = False
                 break
+            if read_perf_MB_s == 0 and write_perf_MB_s == 0:
+                break_count += 1
 
             if self.param.ENABLE_PERFORMANCE_RECORD_TO_TERMINAL:
                 print(
@@ -79,6 +82,9 @@ class PerformanceMeasure:
                 if self.param.ENABLE_WAF_RECORD:
                     print(
                         f'WAF : {(self.analyzer.calculate_waf()):.2f}', end='')
+
+            if self.analyzer.printer.is_tqdm_printer:
+                self.analyzer.printer.print_sim_progress(False)
 
             if self.param.ENABLE_PERFORMANCE_RECORD:
                 print(

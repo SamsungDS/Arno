@@ -1,6 +1,7 @@
 import os
 
 from core.config.basic_workload_types import BasicWorkload, PreDefinedWorkload
+from core.script.workload_reader import *
 from product.general.config.argument import args
 from product.general.config.storage_parameters import Parameter
 from product.general.framework.simulation_env import StorageSimulationEnv
@@ -31,14 +32,30 @@ def get_basic_workload():
     workload_list = [workload for workload in workload_patterns]
     return workload_list
 
+
+def get_benchmark_workload():
+    if param.WORKLOAD_TYPE == 'pcmark10':
+        workload_reader = PCMARK10(param)
+    else:
+        assert False, f'invalid workload: {param.WORKLOAD_TYPE}'
+    workload_list = workload_reader.workload_list
+    max_lpn = int(math.ceil(workload_reader.workload_max_offset / param.MAPUNIT_SIZE))
+    map_file = workload_reader.meta_map_file
+
+    return workload_list, max_lpn, map_file
+
+
 def start_sim():
     simulation_env = StorageSimulationEnv()
     runner = SimulationRunner(simulation_env)
     runner.print_nand_option()
 
-    workload_list = get_basic_workload()
+    if param.WORKLOAD_TYPE == 'basic':
+        workload_list = get_basic_workload()
+    else:
+        workload_list, max_lpn, map_file = get_benchmark_workload()
 
-    runner.set_mapping_table(runner.get_max_mapping_table(workload_list))
+    runner.set_mapping_table(runner.get_max_mapping_table(workload_list), param.SUSTAINED)
 
     for workload in workload_list:
         runner.set_qd(workload.qd)

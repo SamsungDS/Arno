@@ -35,6 +35,7 @@ class Analyzer:
         cur_dict = dict()
         cur_dict[eCMDType.Read] = 0
         cur_dict[eCMDType.Write] = 0
+        cur_dict[eCMDType.Flush] = 0
 
         return cur_dict
 
@@ -204,7 +205,7 @@ class Analyzer:
             self.sustained_command_done_count[cmd_type] += 1
 
         if self.printer.is_tqdm_printer:
-            self.printer.print_sim_progress()
+            self.printer.print_sim_progress(True)
         else:
             if cmd_id != -1 and cmd_type in (eCMDType.Write, eCMDType.Read):
                 self.total_command_done_size += self.command_record.get_command_item(

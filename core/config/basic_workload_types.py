@@ -233,6 +233,11 @@ class PreDefinedWorkload:
             pattern_type=BasicPatternType.Ran,
             chunk_size_bytes=4 * KiB,
             range_bytes=128 * MiB)
+        RanW_4K_192MB = BasicPattern(
+            cmd_type=eCMDType.Write,
+            pattern_type=BasicPatternType.Ran,
+            chunk_size_bytes=4 * KiB,
+            range_bytes=192 * MiB)
         RanW_4K_256MB = BasicPattern(
             cmd_type=eCMDType.Write,
             pattern_type=BasicPatternType.Ran,
@@ -258,6 +263,11 @@ class PreDefinedWorkload:
             pattern_type=BasicPatternType.Ran,
             chunk_size_bytes=4 * KiB,
             range_bytes=128 * MiB)
+        RanR_4K_192MB = BasicPattern(
+            cmd_type=eCMDType.Read,
+            pattern_type=BasicPatternType.Ran,
+            chunk_size_bytes=4 * KiB,
+            range_bytes=192 * MiB)
         RanR_4K_256MB = BasicPattern(
             cmd_type=eCMDType.Read,
             pattern_type=BasicPatternType.Ran,
@@ -276,6 +286,10 @@ class PreDefinedWorkload:
             BasicWorkload(
                 RanW_4K_1GB, qd=512), BasicWorkload(
                 RanR_4K_1GB, qd=512))
+        self.performance_ran_192MB = (
+            BasicWorkload(
+                RanW_4K_192MB, qd=512), BasicWorkload(
+                RanR_4K_192MB, qd=512))
         self.performance_16MB = (
             BasicWorkload(
                 SeqW_128K_16MB, qd=32), BasicWorkload(

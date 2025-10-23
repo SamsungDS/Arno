@@ -1,12 +1,11 @@
 from collections import deque
 from enum import Enum, auto
 
-from core.framework.common import (
-    CMD_PATH_FIFO_ID,
-    eCacheResultType,
-    eCMDType,
-    eResourceType)
+from core.framework.common import (CMD_PATH_FIFO_ID, TransactionSourceType,
+                                   eCacheResultType, eCMDType, eResourceType)
 from core.modules.parallel_unit import ParallelUnit
+from product.general.modules.nvm_transaction_class.nvm_transaction import \
+    NVMTransaction
 from product.general.provided_interface import dcl_pif, hdma_pif
 
 
@@ -19,6 +18,7 @@ class ePCIeOpcode(Enum):
 class eJobDriverId(Enum):
     Read = 0,
     Write = 1,
+    Flush = 2
 
 
 class NVMeStats:
@@ -85,18 +85,15 @@ class NVMe(ParallelUnit):
 
         self.reset_nvme()
 
+        self.generate_submodule(self.job_driver, [self.feature.ZERO], s_id=eJobDriverId.Flush)
         # for read
-        self.generate_submodule(self.job_driver,
-                                [self.feature.NVME_CMD_FETCH_JOB_CREATE],
-                                s_id=eJobDriverId.Read)
+        self.generate_submodule(self.job_driver, [self.feature.NVME_CMD_FETCH_JOB_CREATE], s_id=eJobDriverId.Read)
         self.generate_submodule(
             self.read_task_generator, [
                 self.feature.NVME_READ_4K_IO_CREATE])
 
         # for write
-        self.generate_submodule(self.job_driver,
-                                [self.feature.NVME_CMD_FETCH_JOB_CREATE],
-                                s_id=eJobDriverId.Write)
+        self.generate_submodule(self.job_driver, [self.feature.NVME_CMD_FETCH_JOB_CREATE], s_id=eJobDriverId.Write)
         self.generate_submodule(
             self.write_task_generator, [
                 self.feature.NVME_WRITE_4K_IO_CREATE])
@@ -109,51 +106,23 @@ class NVMe(ParallelUnit):
 
         # for read write
         self.job_fetcher_submodule = self.generate_submodule(
-            self.job_fetcher, [
-                self.feature.NVME_READ_CMD_Q_HANDLING, self.feature.NVME_WRITE_CMD_Q_HANDLING])
+            self.job_fetcher, [self.feature.NVME_READ_CMD_Q_HANDLING, self.feature.NVME_WRITE_CMD_Q_HANDLING, self.feature.ZERO])
         self.dcl_requset_arbiter_submodule = self.generate_submodule(
             self.data_cache_layer_request_arbiter, [
                 self.feature.NVME_NVME_IREAD_REQUEST, self.feature.ZERO])
         self.generate_submodule(self.dma_release, self.feature.ZERO)
 
+        # flush
+        self.generate_submodule(self.flush_response_handling, self.feature.ZERO)
+
         self.read_request_cnt = 0
         self.read_completion_count = 0
         self.read_request_count = 0
+        self.flush_done_count = 0
 
         self.qd_margin_factor = 4
         self.nvme_qd_size = self.param.FTL_MAP_UNIT_PER_PLANE * self.param.PLANE * \
             self.param.CHANNEL * self.param.WAY * self.param.NAND_CELL_TYPE.value * self.qd_margin_factor
-
-    class NVMTransaction:
-        def __init__(
-                self,
-                stream_id,
-                transaction_source_type,
-                transaction_type,
-                lpn,
-                valid_sector_bitmap,
-                buffer_ptr=None):
-            self.stream_id = stream_id
-            self.transaction_type = transaction_type
-            self.transaction_source_type = transaction_source_type
-            self.lpn = lpn
-            self.valid_sector_bitmap = valid_sector_bitmap
-            self.buffer_ptr = buffer_ptr
-
-        def __getitem__(self, key):
-            return getattr(self, key)
-
-        def __setitem__(self, key, value):
-            return setattr(self, key, value)
-
-        def __delitem__(self, key):
-            return delattr(self, key)
-
-        def __contains__(self, key):
-            return hasattr(self, key)
-
-        def __repr__(self):
-            return f"{self.__dict__}"
 
     def init_resource(self, qd):
         self.host_cmd_cnt = 0
@@ -241,7 +210,7 @@ class NVMe(ParallelUnit):
             yield from self.read_completion_submodule.activate_feature(self.feature.NVME_READ_DONE_CREATE)
             dcl_packet = dcl_pif.ReadDoneSQ(packet.get_copy(), self.address)
             dcl_packet['user'] = 'host'
-            if packet['nvm_transaction'].transaction_type == 'nand_read_done':
+            if packet['nvm_transaction'].transaction_type == eCMDType.NANDReadDone:
                 self.slot_to_cache_result[slot_id][eCacheResultType.miss] += 1
             else:
                 self.slot_to_cache_result[slot_id][eCacheResultType.logical_temporal] += 1
@@ -254,7 +223,6 @@ class NVMe(ParallelUnit):
                 self.address_map.DCL,
                 src_submodule=self.read_completion,
                 dst_fifo_id=0)
-
 
             if self.remain_dma_cnt[slot_id] == 0:
                 packet['cmd_last_desc'] = True
@@ -311,6 +279,25 @@ class NVMe(ParallelUnit):
         self.free_slot_list.append(slot_id)
         self.wakeup(self.response_handling, self.cmd_receive_logic)
 
+    def flush_response_handling(self, packet):
+        self.flush_done_count += 1
+        # print("nvme flush done : ",self.flush_done_count)
+        slot_id = packet['slot_id']
+        cmd_type = packet['cmd_type']
+
+        packet['cmd_id'] = self.slot_to_cmd_id[slot_id]
+
+        self.analyzer.increase_cmd_done(
+            cmd_type, self.slot_to_cmd_id[slot_id])
+        self.vcd_manager.increase_cmd_done(cmd_type)
+        packet['cmd_id'] = self.slot_to_cmd_id[slot_id]
+
+        assert slot_id in self.allocated_slot_list, 'already done cmd'
+        self.allocated_slot_list.remove(slot_id)
+        self.vcd_manager.set_nvme_qd_count(len(self.allocated_slot_list))
+        self.free_slot_list.append(slot_id)
+        self.wakeup(self.flush_response_handling, self.cmd_receive_logic)
+
     def dma_done_handler(self, packet):
         if packet['cmd_type'] == eCMDType.Read:
             self.wakeup(
@@ -347,8 +334,16 @@ class NVMe(ParallelUnit):
                 packet,
                 dst_id=eJobDriverId.Write,
                 description=f'{cmd_type.name} CMD')
-
+        elif cmd_type == eCMDType.Flush:
+            yield from self.job_fetcher_submodule.activate_feature(self.feature.ZERO)
+            self.wakeup(
+                self.job_fetcher,
+                self.job_driver,
+                packet,
+                dst_id=eJobDriverId.Flush,
+                description=f'{cmd_type.name} CMD')
         else:
+
             assert 0, "not support command"
             return
 
@@ -396,6 +391,12 @@ class NVMe(ParallelUnit):
                     tr,
                     src_id=s_id,
                     description='TR Split ')
+            elif s_id == eJobDriverId.Flush:
+                self.wakeup(
+                    self.job_driver,
+                    self.data_cache_layer_request_arbiter,
+                    packet,
+                    description='Send Flush')
             else:
                 assert 0, 'invalid path'
 
@@ -406,7 +407,7 @@ class NVMe(ParallelUnit):
 
         self.read_dma_alloc_Cnt += 1
 
-        packet['desc_id'] = desc_id_list[0]
+        packet['desc_id'] = desc_id_list
         sector_offset, sector_count, remnent = self.get_sector_count(packet)
         packet['valid_sector_bitmap'] = (
             [0] * sector_offset) + ([1] * sector_count) + ([0] * remnent)
@@ -577,6 +578,12 @@ class NVMe(ParallelUnit):
             send_packet['write_zero'] = False
             send_packet['deac'] = packet.get('deac', 0)
             self.stats.write_issue(send_packet['deac'])
+        elif cmd_type == eCMDType.Flush:
+            yield from self.dcl_requset_arbiter_submodule.activate_feature(self.feature.ZERO)
+            send_packet = dcl_pif.FlushSQ(packet, self.address)
+            send_packet['deac'] = packet.get('deac', 0)
+            send_packet['lpn'] = -1
+            send_packet['valid_sector_bitmap'] = [1, 1, 1, 1, 1, 1, 1, 1]
         else:
             assert 0, f' {packet["cmd_type"]} is invalid'
 
@@ -594,20 +601,22 @@ class NVMe(ParallelUnit):
 
     def generate_dcl_packet(self, packet):
         if packet['cmd_type'] == eCMDType.Write:
-            transaction_type = 'write'
+            transaction_type = eCMDType.Write
         elif packet['cmd_type'] == eCMDType.ReadDone:
-            transaction_type = 'read_done_sq'
+            transaction_type = eCMDType.ReadDoneSQ
+        elif packet['cmd_type'] == eCMDType.Flush:
+            transaction_type = eCMDType.Flush
         else:
             assert packet['cmd_type'] == eCMDType.Read
-            transaction_type = 'read'
+            transaction_type = eCMDType.Read
 
         if packet['cmd_type'] == eCMDType.ReadDone:
             packet['nvm_transaction'].transaction_type = transaction_type
         else:
             buffer_ptr = packet.get('desc_id', {}).get('buffer_ptr')
-            nvm_transaction = self.NVMTransaction(
+            nvm_transaction = NVMTransaction(
                 packet['host_stream_id'],
-                'user_io',
+                TransactionSourceType.UserIO,
                 transaction_type,
                 packet['lpn'],
                 self.binary_list_to_int(
@@ -636,7 +645,7 @@ class NVMe(ParallelUnit):
                     self.address,
                     self.cmd_receive_logic,
                     packet,
-                    src_id=fifo_id)  # host write cmd recv
+                    src_id=fifo_id)  # host write and flush cmd recv
             else:
                 self.wakeup(
                     self.address,
@@ -651,7 +660,7 @@ class NVMe(ParallelUnit):
                 src_id=fifo_id)
         elif packet['src'] == self.address_map.DCL:
             # Write Command 수행 시, DCL으로부터 cache_write_done 받았을 때에만 Touch 된다.
-            if packet['nvm_transaction'].transaction_type == 'cache_write_done':
+            if packet['nvm_transaction'].transaction_type == eCMDType.CacheWriteDone:
                 self.wakeup(
                     self.address,
                     self.write_back_handler,
@@ -659,7 +668,7 @@ class NVMe(ParallelUnit):
                     src_id=fifo_id)
             # Read Command에 대해 Cache Hit인 경우 DCL으로부터 cache_read_done 받았을 때에만
             # Touch 된다.
-            elif packet['nvm_transaction'].transaction_type == 'cache_read_done':
+            elif packet['nvm_transaction'].transaction_type == eCMDType.CacheReadDone:
                 self.read_request_cnt += 1
                 self.wakeup(
                     self.address,
@@ -668,7 +677,7 @@ class NVMe(ParallelUnit):
                     src_id=fifo_id,
                     description='Analyze Ready Q')
             # Read Command에 대해 CM으로부터 nand_read_done 받았을 때에만 Touch 된다.
-            elif packet['nvm_transaction'].transaction_type == 'nand_read_done':
+            elif packet['nvm_transaction'].transaction_type == eCMDType.NANDReadDone:
                 self.read_request_cnt += 1
                 packet['cmd_type'] = eCMDType.Read
                 self.wakeup(
@@ -677,8 +686,14 @@ class NVMe(ParallelUnit):
                     packet,
                     src_id=fifo_id,
                     description='Analyze Ready Q')
+            elif packet['nvm_transaction'].transaction_type == eCMDType.FlushDone:
+                self.wakeup(
+                    self.address,
+                    self.flush_response_handling,
+                    packet,
+                    src_id=fifo_id)
             else:   # Read Command에 대해 HDMA가 ReadBuffer로부터 PCIe를 통해 Host로 WriteDMA 완료한 이후, DCL으로부터 read_done_cq 받았을 때에만 Touch 된다.
-                assert packet['nvm_transaction'].transaction_type == 'read_done_cq'
+                assert packet['nvm_transaction'].transaction_type == eCMDType.ReadDoneCQ
                 self.send_sq(
                     packet.copy(),
                     self.address,

@@ -1,4 +1,4 @@
-import time
+import sys
 from datetime import datetime, timedelta
 
 try:
@@ -16,8 +16,9 @@ if library_imported:
             self.end_idx = _end_idx
             self.progress_bar = None
             self.sim_start_time = -1
+            self.progress_count = 0
 
-        def print_sim_progress(self):
+        def print_sim_progress(self, update):
             if self.sim_start_time == -1:
                 self.sim_start_time = datetime.now()
 
@@ -25,9 +26,18 @@ if library_imported:
                 return
 
             if self.progress_bar is None:
-                self.progress_bar = tqdm(total=self.end_idx, desc="Processing")
+                self.progress_bar = tqdm(total=self.end_idx, desc="Processing", mininterval=0.05, file=sys.stdout)
 
-            self.progress_bar.update(1)
+            if update:
+                self.progress_bar.update(1)
+                self.progress_count += 1
+            else:
+
+                self.progress_bar.refresh()
+
+            if self.progress_count == self.end_idx:
+                self.progress_bar.close()
+                self.param.SIM_END = True
 
         def get_elapsed_time_format_line(self):
             self.elapsed_time = datetime.now() - self.sim_start_time
@@ -51,6 +61,7 @@ else:
             self.end_idx_digit = len(str(_end_idx))
             self.end_size = _end_size
             self.print_period = _print_period
+            self.progress_count = 0
             assert self.print_period >= 1
 
             self.sim_start_time = 0
@@ -92,6 +103,9 @@ else:
 
             if done_count == self.end_idx:
                 print()
+            self.progress_count += 1
+            if self.progress_count == self.end_idx:
+                self.param.SIM_END = True
 
         def close(self):
             pass

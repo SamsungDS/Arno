@@ -252,42 +252,42 @@ class CoreFeature(metaclass=Singleton):
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_1P, Cell.SLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_2P, Cell.SLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_4P, Cell.SLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_6P, Cell.SLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_8P, Cell.SLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_1P_4K, Cell.SLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_1P, Cell.MLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_2P, Cell.MLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_4P, Cell.MLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_1P_4K, Cell.MLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_6P, Cell.MLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_8P, Cell.MLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
 
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_1P, Cell.TLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_2P, Cell.TLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_4P, Cell.TLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_6P, Cell.TLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_8P, Cell.TLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tR_1P_4K, Cell.TLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.51e-2, 0, 0, 0, 0, 0, 0)
 
         self.feature_list[self.NAND_OPERATION[NANDCMDType.Dout_4K]] = FeatureInfo(
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -306,20 +306,20 @@ class CoreFeature(metaclass=Singleton):
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tProg, Cell.SLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.12e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tProg_1P, Cell.SLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.12e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tProg, Cell.MLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.12e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tProg_1P, Cell.MLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.12e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tProg, Cell.TLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.12e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[hash((NANDCMDType.tProg_1P, Cell.TLC))]] = FeatureInfo(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            0, 0, 0, 0, 3.12e-2, 0, 0, 0, 0, 0, 0)
 
         self.feature_list[self.NAND_OPERATION[NANDCMDType.tBERS]
-                          ] = FeatureInfo(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+                          ] = FeatureInfo(0, 0, 0, 0, 1.56e-2, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[NANDCMDType.tNSC]
                           ] = FeatureInfo(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         self.feature_list[self.NAND_OPERATION[NANDCMDType.LatchDumpDown]] = FeatureInfo(

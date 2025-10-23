@@ -300,8 +300,9 @@ class ParallelUnit:
 
         if self.param.GENERATE_SUBMODULE_DIAGRAM:
             if isinstance(src_func, int):
-                assert src_id != - \
-                    1, f'Wrong fifo id from module addr:{self.address}, to {dst_func.__name__}'
+                if src_id == -1:
+                    print(src_func, dst_func, packet, src_id, dst_id)
+                assert src_id != -1, f'Wrong fifo id from module addr:{self.address}, to {dst_func.__name__}'
                 src_name = self.get_name(self.address, src_id)
                 self.record_packet_transfer_to_diagram(
                     src_name=src_name,

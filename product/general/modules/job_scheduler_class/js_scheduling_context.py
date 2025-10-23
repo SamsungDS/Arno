@@ -7,12 +7,16 @@ from core.framework.media_common import (NANDCMDType, is_data_cmd, is_din_cmd,
                                          is_tr_cmd)
 from product.general.modules.job_scheduler_class.js_cache_controller import \
     CacheController
-from product.general.modules.job_scheduler_class.js_channel_arbiter import ChannelArbiter
+from product.general.modules.job_scheduler_class.js_channel_arbiter import \
+    ChannelArbiter
 from product.general.modules.job_scheduler_class.js_nand_busy_controller import \
     NANDBusyController
-from product.general.modules.job_scheduler_class.js_nand_config import NANDConfig
-from product.general.modules.job_scheduler_class.js_queue import QFacade, SchedulerQ
-from product.general.modules.job_scheduler_class.js_queue_selecter import QueueSelecter
+from product.general.modules.job_scheduler_class.js_nand_config import \
+    NANDConfig
+from product.general.modules.job_scheduler_class.js_queue import (QFacade,
+                                                                  SchedulerQ)
+from product.general.modules.job_scheduler_class.js_queue_selecter import \
+    QueueSelecter
 from product.general.modules.job_scheduler_class.js_starvation_manager import \
     StarvationManager
 from product.general.modules.job_scheduler_class.js_way_preemption_handler import \
